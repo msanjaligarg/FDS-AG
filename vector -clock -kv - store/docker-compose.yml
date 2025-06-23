@@ -1,0 +1,47 @@
+#version: '3'
+services:
+  node1:
+    build: .
+    container_name: node1
+    hostname: node1
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./src:/app
+    environment:
+      - NODE_ID=node1
+      - NODES=node1,node2,node3
+      - PORT=5000
+      - PYTHONUNBUFFERED=1
+
+  node2:
+    build: .
+    container_name: node2
+    hostname: node2
+    ports:
+      - "5002:5000"
+    volumes:
+      - ./src:/app
+    environment:
+      - NODE_ID=node2
+      - NODES=node1,node2,node3
+      - PORT=5000
+      - PYTHONUNBUFFERED=1
+
+  node3:
+    build: .
+    container_name: node3
+    hostname: node3
+    ports:
+      - "5003:5000"
+    volumes:
+      - ./src:/app
+    environment:
+      - NODE_ID=node3
+      - NODES=node1,node2,node3
+      - PORT=5000
+      - PYTHONUNBUFFERED=1
+
+networks:
+  default:
+    name: kvstore_network
