@@ -1,0 +1,111 @@
+#version: '3.8'
+
+services:
+  charge_request_service:
+    build: ./charge_request_service
+    ports:
+      - "5000:5000"
+    depends_on:
+      - load_balancer
+    environment:
+      - LOAD_BALANCER_URL=http://load_balancer:5000  # Explicitly set
+    networks:
+      - smartgrid
+
+  load_balancer:
+    build: ./load_balancer
+    ports:
+      - "5001:5000"
+    environment:
+      - SUBSTATIONS=substation1:5000,substation2:5000,substation3:5000
+    depends_on:
+      substation1:
+        condition: service_healthy
+      substation2:
+        condition: service_healthy
+      substation3:
+        condition: service_healthy
+    networks:
+      - smartgrid
+
+  substation1:
+    build: ./substation
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+      start_period: 10s
+    environment:
+      - SERVICE_ID=1
+    networks:
+      - smartgrid
+
+
+  substation2:
+    build: ./substation
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+      start_period: 10s
+    environment:
+      - SERVICE_ID=2
+    networks:
+      - smartgrid
+
+  substation3:
+    build: ./substation
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+      start_period: 10s
+    environment:
+      - SERVICE_ID=3
+    networks:
+      - smartgrid
+
+  load_tester:
+    build: ./load_tester
+    depends_on:
+      - charge_request_service
+    environment:
+      - CHARGE_SERVICE_URL=http://charge_request_service:5000
+    networks:
+      - smartgrid
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - smartgrid
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./monitoring/grafana/config:/etc/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana  # Changed to use the properly declared volume
+    environment:
+      - GF_PATHS_CONFIG=/etc/grafana/grafana.ini
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - smartgrid
+
+volumes:
+  grafana_data:  # Properly declared named volume
+
+networks:
+  smartgrid:
+    driver: bridge
